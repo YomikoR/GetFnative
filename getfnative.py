@@ -224,7 +224,8 @@ def main() -> None:
     parser.add_argument('--lanczos-taps', '-t', dest='taps', type=int, default=3, help='Taps parameter of lanczos resize')
     parser.add_argument('--base-height', '-bh', dest='bh', type=int, default=None, help='Base integer height before cropping')
     parser.add_argument('--base-width', '-bw', dest='bw', type=int, default=None, help='Base integer width before cropping')
-    parser.add_argument('--min-src-height', '-min', dest='sh_min', type=to_float, default=720, help='Minimum native height of src_height to consider')
+    parser.add_argument('--min-src-height', '-min', dest='sh_min', type=to_float, default=None, help='Minimum native src_height to consider')
+    parser.add_argument('--max-src-height', '-max', dest='sh_max', type=to_float, default=None, help='Maximum native src_height to consider')
     parser.add_argument('--step-length', '-sl', dest='sh_step', type=to_float, default='0.25', help='Step length of src_height searching')
     parser.add_argument('--threshold', '-thr', dest='thr', type=to_float, default='0.015', help='Threshold for calculating descaling error')
     parser.add_argument('--mode', '-m', dest='mode', type=str.lower, default='wh', help='Mode for descaling, options are wh (default), w (descale in width only) and h (descale in height only)')
@@ -251,15 +252,27 @@ def main() -> None:
             save_path = save_path + f'-{n}.' + args.save_ext
             break
 
-    starttime = time.time()
-
-    assert args.sh_step > 0.0 and args.sh_min < args.bh - args.sh_step
-    max_samples = floor((args.bh - args.sh_min) / args.sh_step) + 1
-    src_heights = [args.sh_min + n * args.sh_step for n in range(max_samples)]
+    if args.sh_max is None:
+        sh_max = args.bh
+    else:
+        sh_max = args.sh_max
+    if args.sh_min is None:
+        sh_min = sh_max - 100
+    else:
+        sh_min = args.sh_min
+    assert args.sh_step > 0.0
+    assert sh_max <= args.bh
+    assert sh_min < sh_max - args.sh_step
+    max_samples = floor((sh_max - sh_min) / args.sh_step) + 1
+    src_heights = [sh_min + n * args.sh_step for n in range(max_samples)]
     if args.bw is None:
-        args.bw = getw(clip, args.bh)
-        print(f'Using base width {args.bw}.')
-    gen_descale_error(clip, args.frame_no, args.bh, args.bw, src_heights, args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
+        bw = getw(clip, args.bh)
+        print(f'Using base width {bw}.')
+    else:
+        bw = args.bw
+
+    starttime = time.time()
+    gen_descale_error(clip, args.frame_no, args.bh, bw, src_heights, args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
 
     print(f'Done in {time.time() - starttime:.2f}s')
 
