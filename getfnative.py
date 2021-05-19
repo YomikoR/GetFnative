@@ -193,8 +193,8 @@ def gen_descale_error(clip: vs.VideoNode, frame_no: int, base_height: int, base_
         descaled = descaler(clip, **cropping_args)
         cropping_args.update(width=clip.width, height=clip.height)
         return scaler(descaled, **cropping_args)
-    rescaled = core.std.FrameEval(clip, partial(_rescale, clip=clips))
-    diff = core.std.Expr([clips, rescaled], f'x y - abs dup {thr} > swap 0 ?').std.Crop(10, 10, 10, 10).std.PlaneStats().std.Cache()
+    rescaled = core.std.FrameEval(clips, partial(_rescale, clip=clips))
+    diff = core.std.Expr([clips, rescaled], f'x y - abs dup {thr} > swap 0 ?').std.Crop(10, 10, 10, 10).std.PlaneStats()
     # Collect error
     errors = [0.0] * num_samples
     for n, f in enumerate(frames(diff)):

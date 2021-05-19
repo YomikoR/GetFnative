@@ -6,7 +6,7 @@ A script that help find the native fractional resolution of upscaled material (m
 The general idea can be found in [anibin's blog](https://anibin.blogspot.com/2014/01/blog-post_3155.html).
 
 Suppose the native integer resolution is `base_width x base_height`, upscaled and cropped to only keep the central region (typically 1920 x 1080). This script performs a naive search on the fractional `src_height`.
-The search is performed in the interval from `min` to `max` with a given `step_length`.
+The search is taken in the interval from `min` to `max` with a given `step_length`.
 These parameters can be specified using `-min`, `-max` and `-sl`, respectively.
 
 You must specify `base_height` using `-bh`, and optionally specify `base_width` using `-bw`.
