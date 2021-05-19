@@ -5,17 +5,15 @@ A script that help find the native fractional resolution of upscaled material (m
 
 The general idea can be found in [anibin's blog](https://anibin.blogspot.com/2014/01/blog-post_3155.html).
 
-Suppose the native integer resolution is `(bw, bh)`, upscaled with a ratio `r` while cropped to only keep the central region `(W, H) = (1920, 1080)`. This script performs a naive search on `bH = bh * r`.
+Suppose the native integer resolution is `base_width x base_height`, upscaled and cropped to only keep the central region (typically 1920 x 1080). This script performs a naive search on the fractional `src_height`.
 
-The only parameter that must be provided is `bh`. You may pick a multiple of 18 which is slightly larger than the native fractional resolution you guess.
+The search is performed in the interval from `min` to `base_height` with a given `step_length`.
+These parameters can be specified using `-min`, `-bh` and `-sl`, respectively.
 
-The example below, reported as 806p by getnative, suggests `r=1.34`:
-```python
-python getfnative.py source.vpy -bh 864
-```
-![getfnative-f0-bh864-1](https://user-images.githubusercontent.com/64504948/116792318-7aa5f180-aa85-11eb-83a4-19782e920054.png)
+Note that even and odd values of `base_height` or `base_width` (optionally specified using `-bw`) behave quite differently because of the cropping method.
+With the wrong parity used you might see a spike in the opposite direction.
 
-There is a minor memory leak which you may simply ignore.
+There is a minor memory leak caused by calling `get_frame_async` but you may simply ignore it.
 
 ## Acknowledgment
 
