@@ -201,6 +201,7 @@ def gen_descale_error(clip: vs.VideoNode, frame_no: int, base_height: int, base_
         print(f'\r{n}/{num_samples}', end='')
         errors[n] = f.props['PlaneStatsAverage']
     print('\n')
+    gc.collect()
     # Plot
     p = plt.figure()
     plt.close('all')
