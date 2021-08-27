@@ -6,7 +6,7 @@ from typing import Callable, Dict, Iterable, List, Optional
 
 import vapoursynth as vs
 core = vs.core
-core.add_cache = False
+#core.add_cache = False
 
 #import matplotlib as mpl
 #mpl.use('Agg')
