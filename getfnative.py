@@ -83,7 +83,10 @@ def descale_cropping_args(clip: vs.VideoNode, src_height: float, base_height: in
     src_width = src_height * clip.width / clip.height
     cropped_width = base_width - 2 * floor((base_width - src_width) / 2)
     cropped_height = base_height - 2 * floor((base_height - src_height) / 2)
-    args = dict()
+    args = dict(
+        width = clip.width,
+        height = clip.height
+    )
     args_w = dict(
         width = cropped_width,
         src_width = src_width,
