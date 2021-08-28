@@ -57,90 +57,9 @@ def vpy_source_filter(path: os.PathLike) -> vs.VideoNode:
     return vs.get_output(0)
 
 
-# https://github.com/stuxcrystal/vapoursynth/blob/9ce5fe890dfc6f60ccedd096f1c5ecef64fe52fb/src/cython/vapoursynth.pyx#L1548
-# basically, self -> clip
-def frames(clip: vs.VideoNode, prefetch: Optional[int] = None, backlog: Optional[int] = None) -> Iterable[vs.VideoFrame]:
-    if prefetch is None or prefetch <= 0:
-        prefetch = vs.core.num_threads
-    if backlog is None or backlog < 0:
-        backlog = prefetch * 3
-    elif backlog < prefetch:
-        backlog = prefetch
-    
-    enum_fut = enumerate(clip.get_frame_async(frameno) for frameno in range(len(clip)))
-
-    finished = False
-    running = 0
-    lock = RLock()
-    reorder = {}
-
-    def _request_next():
-        nonlocal finished, running
-        with lock:
-            if finished:
-                return
-
-            ni = next(enum_fut, None)
-            if ni is None:
-                finished = True
-                return
-
-            running += 1
-
-            idx, fut = ni
-            reorder[idx] = fut
-            fut.add_done_callback(_finished)
-
-    def _finished(f):
-        nonlocal finished, running
-        with lock:
-            running -= 1
-            if finished:
-                return
-
-            if f.exception() is not None:
-                finished = True
-                return
-
-            _refill()
-
-    def _refill():
-        if finished:
-            return
-        
-        with lock:
-            # Two rules: 1. Don't exceed the concurrency barrier
-            #            2. Don't exceed unused-frames-backlog
-            while (not finished) and (running < prefetch) and len(reorder) < backlog:
-                _request_next()
-
-    _refill()
-
-    sidx = 0
-    try:
-        while (not finished) or (len(reorder) > 0) or running > 0:
-            if sidx not in reorder:
-                # Spin. Reorder being empty should never happen.
-                continue
-        
-            # Get next requested frame
-            fut = reorder[sidx]
-
-            result = fut.result()
-            del reorder[sidx]
-            _refill()
-
-            sidx += 1
-            yield result
-    
-    finally:
-        finished = True
-        gc.collect()
-
-
 # https://github.com/Infiziert90/getnative/blob/c4bfbb07165db315e3c5d89e68f294892b2effaf/getnative/utils.py#L64
 def to_float(str_value: str) -> float:
-    if set(str_value) - set("0123456789./"):
+    if set(str_value) - set("0123456789./-"):
         raise argparse.ArgumentTypeError("Invalid characters in float parameter")
     try:
         return eval(str_value) if "/" in str_value else float(str_value)
@@ -197,8 +116,8 @@ def gen_descale_error(clip: vs.VideoNode, frame_no: int, base_height: int, base_
     diff = core.std.Expr([clips, rescaled], f'x y - abs dup {thr} > swap 0 ?').std.Crop(10, 10, 10, 10).std.PlaneStats()
     # Collect error
     errors = [0.0] * num_samples
-    for n, f in enumerate(frames(diff)):
-        print(f'\r{n}/{num_samples}', end='')
+    for n, f in enumerate(diff.frames()):
+        print(f'\r{n + 1}/{num_samples}', end='')
         errors[n] = f.props['PlaneStatsAverage']
     print('\n')
     gc.collect()
