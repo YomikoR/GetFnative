@@ -54,7 +54,7 @@ def get_scaler(kernel: str, b: int = 0, c: float = 1 / 2, taps: int = 3) -> Call
 # https://github.com/Infiziert90/getnative/blob/c4bfbb07165db315e3c5d89e68f294892b2effaf/getnative/utils.py#L27
 def vpy_source_filter(path: os.PathLike) -> vs.VideoNode:
     runpy.run_path(path, {}, '__vapoursynth__')
-    return vs.get_output(0)
+    return vs.get_output(0)[0]
 
 
 # https://github.com/Infiziert90/getnative/blob/c4bfbb07165db315e3c5d89e68f294892b2effaf/getnative/utils.py#L64
