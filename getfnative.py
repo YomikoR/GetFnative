@@ -1,12 +1,10 @@
 import os, gc, time, runpy, argparse
-from threading import RLock
 from functools import partial
 from math import floor, ceil
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import vapoursynth as vs
 core = vs.core
-#core.add_cache = False
 
 #import matplotlib as mpl
 #mpl.use('Agg')
@@ -15,23 +13,6 @@ from matplotlib.figure import figaspect
 
 
 __all__ = ['descale_cropping_args']
-
-
-def get_descaler(kernel: str, b: int = 0, c: float = 1 / 2, taps: int = 3) -> Callable[..., vs.VideoNode]:
-    if kernel == 'bilinear':
-        return core.descale.Debilinear
-    elif kernel == 'bicubic':
-        return partial(core.descale.Debicubic, b=b, c=c)
-    elif kernel == 'lanczos':
-        return partial(core.descale.Delanczos, taps=taps)
-    elif kernel == 'spline16':
-        return core.descale.Despline16
-    elif kernel == 'spline36':
-        return core.descale.Despline36
-    elif kernel == 'spline64':
-        return core.descale.Despline64
-    else:
-        raise ValueError('_get_descaler: invalid kernel specified.')
 
 
 def get_scaler(kernel: str, b: int = 0, c: float = 1 / 2, taps: int = 3) -> Callable[..., vs.VideoNode]:
@@ -48,7 +29,7 @@ def get_scaler(kernel: str, b: int = 0, c: float = 1 / 2, taps: int = 3) -> Call
     elif kernel == 'spline64':
         return core.resize.Spline64
     else:
-        raise ValueError('_get_scaler: invalid kernel specified.')
+        raise ValueError('get_scaler: invalid kernel specified.')
 
 
 # https://github.com/Infiziert90/getnative/blob/c4bfbb07165db315e3c5d89e68f294892b2effaf/getnative/utils.py#L27
@@ -108,11 +89,10 @@ def gen_descale_error(clip: vs.VideoNode, frame_no: int, base_height: int, base_
     num_samples = len(src_heights)
     clips = clip[frame_no].resize.Point(format=vs.GRAYS, matrix_s='709' if clip.format.color_family == vs.RGB else None).std.Cache() * num_samples
     # Descale
-    descaler = get_descaler(kernel, b, c, taps)
     scaler = get_scaler(kernel, b, c, taps)
     def _rescale(n, clip):
         cropping_args = descale_cropping_args(clip, src_heights[n], base_height, base_width, mode)
-        descaled = descaler(clip, **cropping_args)
+        descaled = core.descale.Descale(clip, kernel=kernel, b=b, c=c, taps=taps, **cropping_args)
         cropping_args.update(width=clip.width, height=clip.height)
         return scaler(descaled, **cropping_args)
     rescaled = core.std.FrameEval(clips, partial(_rescale, clip=clips))
