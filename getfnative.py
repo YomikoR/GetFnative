@@ -5,6 +5,7 @@ from typing import Callable, Dict, List, Optional
 
 import vapoursynth as vs
 core = vs.core
+core.max_cache_size = 8192
 
 #import matplotlib as mpl
 #mpl.use('Agg')
@@ -99,10 +100,11 @@ def gen_descale_error(clip: vs.VideoNode, frame_no: int, base_height: int, base_
     diff = core.std.Expr([clips, rescaled], f'x y - abs dup {thr} > swap 0 ?').std.Crop(10, 10, 10, 10).std.PlaneStats()
     # Collect error
     errors = [0.0] * num_samples
+    starttime = time.time()
     for n, f in enumerate(diff.frames()):
         print(f'\r{n + 1}/{num_samples}', end='')
         errors[n] = f.props['PlaneStatsAverage']
-    print('\n')
+    print(f'\nDone in {time.time() - starttime:.2f}s')
     gc.collect()
     # Plot
     p = plt.figure()
@@ -174,10 +176,7 @@ def main() -> None:
     else:
         bw = args.bw
 
-    starttime = time.time()
     gen_descale_error(clip, args.frame_no, args.bh, bw, src_heights, args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
-
-    print(f'Done in {time.time() - starttime:.2f}s')
 
 
 if __name__ == '__main__':
