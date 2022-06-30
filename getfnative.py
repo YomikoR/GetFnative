@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os, gc, time, runpy, argparse
 from functools import partial
 from math import floor, ceil
@@ -33,13 +34,14 @@ def get_scaler(kernel: str, b: int = 0, c: float = 1 / 2, taps: int = 3) -> Call
         raise ValueError('get_scaler: invalid kernel specified.')
 
 
-# https://github.com/Infiziert90/getnative/blob/c4bfbb07165db315e3c5d89e68f294892b2effaf/getnative/utils.py#L27
 def vpy_source_filter(path: os.PathLike) -> vs.VideoNode:
     runpy.run_path(path, {}, '__vapoursynth__')
-    return vs.get_output(0)[0]
+    output = vs.get_output(0)
+    if not isinstance(output, vs.VideoNode):
+        output = output[0]
+    return output
 
 
-# https://github.com/Infiziert90/getnative/blob/c4bfbb07165db315e3c5d89e68f294892b2effaf/getnative/utils.py#L64
 def to_float(str_value: str) -> float:
     if set(str_value) - set("0123456789./-"):
         raise argparse.ArgumentTypeError("Invalid characters in float parameter")
@@ -88,7 +90,7 @@ def descale_cropping_args(clip: vs.VideoNode, src_height: float, base_height: in
 
 def gen_descale_error(clip: vs.VideoNode, frame_no: int, base_height: int, base_width: int, src_heights: List[float], kernel: str = 'bicubic', b: int = 0, c: float = 1 / 2, taps: int = 3, mode: str = 'wh', thr: float = 0.015, show_plot: bool = True, save_path: Optional[os.PathLike] = None) -> None:
     num_samples = len(src_heights)
-    clips = clip[frame_no].resize.Point(format=vs.GRAYS, matrix_s='709' if clip.format.color_family == vs.RGB else None).std.Cache() * num_samples
+    clips = clip[frame_no].resize.Point(format=vs.GRAYS, matrix_s='709' if clip.format.color_family == vs.RGB else None) * num_samples
     # Descale
     scaler = get_scaler(kernel, b, c, taps)
     def _rescale(n, clip):
@@ -138,9 +140,16 @@ def main() -> None:
     parser.add_argument('--save-ext', '-ext', dest='save_ext', type=str, default='svg', help='File extension of output error plot file')
     parser.add_argument(dest='input_file', type=str, help='Absolute or relative path to the input VPY script')
     args = parser.parse_args()
+
+    if args.bh is None:
+        raise ValueError('You must specify the base_height via "-bh" or "--base-height".')
+
     ext = os.path.splitext(args.input_file)[1]
     assert ext.lower() in {'.py', '.pyw', '.vpy'}
     clip = vpy_source_filter(args.input_file)
+
+    if args.bh > clip.height:
+        raise ValueError(f'You specified a base_height value {args.bh} greater than the height {clip.height} of the given clip.')
 
     if args.save_dir is None:
         dir_out = os.path.join(os.path.dirname(args.input_file), 'getfnative_results')
@@ -175,6 +184,9 @@ def main() -> None:
         print(f'Using base width {bw}.')
     else:
         bw = args.bw
+
+    if bw > clip.width:
+        raise ValueError(f'You are using a base_width value {args.bw} greater than the width {clip.width} of the given clip.')
 
     gen_descale_error(clip, args.frame_no, args.bh, bw, src_heights, args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
 
