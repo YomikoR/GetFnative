@@ -5,15 +5,20 @@ A script that help find the native fractional resolution of upscaled material (m
 
 The general idea can be found in [anibin's blog](https://anibin.blogspot.com/2014/01/blog-post_3155.html).
 
+### getfnative
+
 Suppose the native integer resolution is `base_width x base_height`, upscaled and cropped to only keep the central region (typically 1920 x 1080). This script performs a naive search on the fractional `src_height`.
 The search is taken in the interval from `min` to `max` with a given `step_length`.
 These parameters can be specified using `-min`, `-max` and `-sl`, respectively.
 
-You must specify `base_height` using `-bh`, and optionally specify `base_width` using `-bw`.
+You would like to specify the **parity** of `base_height` (with `-bh`) and `base_width` (with `-bw`).
+Default values are identical to the dimensions of the tested clip.
 Note that even and odd values of `base_height` or `base_width` behave quite differently because of the cropping method.
 With the wrong parity used you might see a spike in the opposite direction.
 
-Pass `-m w` or `-m h` to descale only in width or in height. By default both dimensions are considered.
+Pass `-m w` or `-m h` to descale only in width or in height.
+This may be helpful for identifying the parity of base dimensions individually.
+By default both dimensions are considered.
 
 To acquire the cropping parameters used in descaling, please refer to the function `descale_cropping_args`.
 

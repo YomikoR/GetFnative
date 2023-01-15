@@ -50,19 +50,8 @@ def to_float(str_value: str) -> float:
         raise argparse.ArgumentTypeError("Exception while parsing float") from None
 
 
-def getw(clip: vs.VideoNode, height: int) -> int:
-    ''' Only force even result if height is even.
-    '''
-    width = ceil(height * clip.width / clip.height)
-    if height % 2 == 0:
-        width = width // 2 * 2
-    return width
-
-
-def descale_cropping_args(clip: vs.VideoNode, src_height: float, base_height: int, base_width: Optional[int] = None, mode: str = 'wh') -> Dict:
+def descale_cropping_args(clip: vs.VideoNode, src_height: float, base_height: int, base_width: int, mode: str = 'wh') -> Dict:
     assert base_height >= src_height
-    if base_width is None:
-        base_width = getw(clip, base_height)
     src_width = src_height * clip.width / clip.height
     cropped_width = base_width - 2 * floor((base_width - src_width) / 2)
     cropped_height = base_height - 2 * floor((base_height - src_height) / 2)
@@ -140,15 +129,21 @@ def main() -> None:
     parser.add_argument(dest='input_file', type=str, help='Absolute or relative path to the input VPY script')
     args = parser.parse_args()
 
-    if args.bh is None:
-        raise ValueError('You must specify the base_height via "-bh" or "--base-height".')
-
     ext = os.path.splitext(args.input_file)[1]
     assert ext.lower() in {'.py', '.pyw', '.vpy'}
     clip = vpy_source_filter(args.input_file)
 
-    if args.bh > clip.height:
-        raise ValueError(f'You specified a base_height value {args.bh} greater than the height {clip.height} of the given clip.')
+    if args.bh is None:
+        base_height = clip.height
+    else:
+        base_height = args.bh
+    if args.bw is None:
+        base_width = clip.width
+    else:
+        base_width = args.bw
+    base_height = clip.height - (base_height - clip.height) % 2
+    base_width = clip.width - (base_width - clip.width) % 2
+    print(f'Using base dimensions {base_width}x{base_height}.')
 
     if args.save_dir is None:
         dir_out = os.path.join(os.path.dirname(args.input_file), 'getfnative_results')
@@ -166,7 +161,7 @@ def main() -> None:
             break
 
     if args.sh_max is None:
-        sh_max = args.bh
+        sh_max = base_height
     else:
         sh_max = args.sh_max
     if args.sh_min is None:
@@ -174,20 +169,12 @@ def main() -> None:
     else:
         sh_min = args.sh_min
     assert args.sh_step > 0.0
-    assert sh_max <= args.bh
+    assert sh_max <= base_height
     assert sh_min < sh_max - args.sh_step
     max_samples = floor((sh_max - sh_min) / args.sh_step) + 1
     src_heights = [sh_min + n * args.sh_step for n in range(max_samples)]
-    if args.bw is None:
-        bw = getw(clip, args.bh)
-        print(f'Using base width {bw}.')
-    else:
-        bw = args.bw
 
-    if bw > clip.width:
-        raise ValueError(f'You are using a base_width value {args.bw} greater than the width {clip.width} of the given clip.')
-
-    gen_descale_error(clip, args.frame_no, args.bh, bw, src_heights, args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
+    gen_descale_error(clip, args.frame_no, base_height, base_width, src_heights, args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
 
 
 if __name__ == '__main__':
