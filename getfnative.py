@@ -6,7 +6,6 @@ from typing import Callable, Dict, List, Optional
 
 import vapoursynth as vs
 core = vs.core
-core.max_cache_size = 8192
 
 #import matplotlib as mpl
 #mpl.use('Agg')
