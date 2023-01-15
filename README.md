@@ -22,6 +22,11 @@ By default both dimensions are considered.
 
 To acquire the cropping parameters used in descaling, please refer to the function `descale_cropping_args`.
 
+### getfnativeq
+
+Q for quick, as it only checks certain preset values with limited options, such as frame number (`-f`), `base_height` (`-bh`), `base_width` (`-bw`) and mode (`-m`).
+Each of the guessed values is corresponding to an upscaling ratio of `1.xx` or a downscaling ratio of `0.xx`, with exactly two decimal numbers.
+
 ## Examples
 
 ```python
