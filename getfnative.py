@@ -50,29 +50,40 @@ def to_float(str_value: str) -> float:
         raise argparse.ArgumentTypeError("Exception while parsing float") from None
 
 
-def descale_cropping_args(clip: vs.VideoNode, src_height: float, base_height: int, base_width: int, mode: str = 'wh') -> Dict:
+def descale_cropping_args(clip: vs.VideoNode, src_height: float,
+                          base_height: int, base_width: int | None = None,
+                          mode: str = 'wh') -> dict[str, float]:
     assert base_height >= src_height
+
+    if base_width is None:
+        base_width = get_w(base_height, clip)
+
     src_width = src_height * clip.width / clip.height
     cropped_width = base_width - 2 * floor((base_width - src_width) / 2)
     cropped_height = base_height - 2 * floor((base_height - src_height) / 2)
+
     args = dict(
-        width = clip.width,
-        height = clip.height
+        width=clip.width,
+        height=clip.height
     )
+
     args_w = dict(
-        width = cropped_width,
-        src_width = src_width,
-        src_left = (cropped_width - src_width) / 2
+        width=cropped_width,
+        src_width=src_width,
+        src_left=(cropped_width - src_width) / 2
     )
+
     args_h = dict(
-        height = cropped_height,
-        src_height = src_height,
-        src_top = (cropped_height - src_height) / 2
+        height=cropped_height,
+        src_height=src_height,
+        src_top=(cropped_height - src_height) / 2
     )
+
     if 'w' in mode.lower():
         args.update(args_w)
     if 'h' in mode.lower():
         args.update(args_h)
+
     return args
 
 
