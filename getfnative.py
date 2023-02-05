@@ -1,16 +1,23 @@
 from __future__ import annotations
-import os, gc, time, runpy, argparse
-from functools import partial
-from math import floor, ceil
-from typing import Callable, Dict, List, Optional
 
+import argparse
+import gc
+import os
+import runpy
+import time
+from functools import partial
+from math import floor
+from typing import Callable, List, Optional
+
+import matplotlib.pyplot as plt
 import vapoursynth as vs
+from matplotlib.figure import figaspect
+from vstools import get_w
+
 core = vs.core
 
-#import matplotlib as mpl
-#mpl.use('Agg')
-import matplotlib.pyplot as plt
-from matplotlib.figure import figaspect
+# import matplotlib as mpl
+# mpl.use('Agg')
 
 
 __all__ = ['descale_cropping_args']
