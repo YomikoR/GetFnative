@@ -1,22 +1,28 @@
 from __future__ import annotations
-import os, gc, time, runpy, argparse
+
+import argparse
+import gc
+import os
+import runpy
+import time
 from functools import partial
-from math import floor, ceil
-from typing import Callable, Dict, List, Optional
+from math import floor
+from typing import Callable, Optional, Union
 
-import vapoursynth as vs
-core = vs.core
-
-#import matplotlib as mpl
-#mpl.use('Agg')
 import matplotlib.pyplot as plt
+import vapoursynth as vs
 from matplotlib.figure import figaspect
 
+core = vs.core
 
 __all__ = ['descale_cropping_args']
 
 
-def get_scaler(kernel: str, b: int = 0, c: float = 1 / 2, taps: int = 3) -> Callable[..., vs.VideoNode]:
+def get_scaler(kernel: str,
+               b: int = 0,
+               c: float = 1 / 2,
+               taps: int = 3
+               ) -> Callable[..., vs.VideoNode]:
     if kernel == 'bilinear':
         return core.resize.Bilinear
     elif kernel == 'bicubic':
@@ -33,7 +39,7 @@ def get_scaler(kernel: str, b: int = 0, c: float = 1 / 2, taps: int = 3) -> Call
         raise ValueError('get_scaler: invalid kernel specified.')
 
 
-def vpy_source_filter(path: os.PathLike) -> vs.VideoNode:
+def vpy_source_filter(path: str) -> vs.VideoNode:
     runpy.run_path(path, {}, '__vapoursynth__')
     output = vs.get_output(0)
     if not isinstance(output, vs.VideoNode):
@@ -43,31 +49,37 @@ def vpy_source_filter(path: os.PathLike) -> vs.VideoNode:
 
 def to_float(str_value: str) -> float:
     if set(str_value) - set("0123456789./-"):
-        raise argparse.ArgumentTypeError("Invalid characters in float parameter")
+        raise argparse.ArgumentTypeError(
+            "Invalid characters in float parameter")
     try:
         return eval(str_value) if "/" in str_value else float(str_value)
     except (SyntaxError, ZeroDivisionError, TypeError, ValueError):
-        raise argparse.ArgumentTypeError("Exception while parsing float") from None
+        raise argparse.ArgumentTypeError(
+            "Exception while parsing float") from None
 
 
-def descale_cropping_args(clip: vs.VideoNode, src_height: float, base_height: int, base_width: int, mode: str = 'wh') -> Dict:
-    assert base_height >= src_height
+def descale_cropping_args(clip: vs.VideoNode,
+                          src_height: float,
+                          base_height: int,
+                          base_width: int,
+                          mode: str = 'wh'
+                          ) -> dict[str, Union[int, float]]:
     src_width = src_height * clip.width / clip.height
     cropped_width = base_width - 2 * floor((base_width - src_width) / 2)
     cropped_height = base_height - 2 * floor((base_height - src_height) / 2)
     args = dict(
-        width = clip.width,
-        height = clip.height
+        width=clip.width,
+        height=clip.height
     )
     args_w = dict(
-        width = cropped_width,
-        src_width = src_width,
-        src_left = (cropped_width - src_width) / 2
+        width=cropped_width,
+        src_width=src_width,
+        src_left=(cropped_width - src_width) / 2
     )
     args_h = dict(
-        height = cropped_height,
-        src_height = src_height,
-        src_top = (cropped_height - src_height) / 2
+        height=cropped_height,
+        src_height=src_height,
+        src_top=(cropped_height - src_height) / 2
     )
     if 'w' in mode.lower():
         args.update(args_w)
@@ -76,18 +88,36 @@ def descale_cropping_args(clip: vs.VideoNode, src_height: float, base_height: in
     return args
 
 
-def gen_descale_error(clip: vs.VideoNode, frame_no: int, base_height: int, base_width: int, src_heights: List[float], kernel: str = 'bicubic', b: int = 0, c: float = 1 / 2, taps: int = 3, mode: str = 'wh', thr: float = 0.015, show_plot: bool = True, save_path: Optional[os.PathLike] = None) -> None:
+def gen_descale_error(clip: vs.VideoNode,
+                      frame_no: int,
+                      base_height: int,
+                      base_width: int,
+                      src_heights: list[float],
+                      kernel: str = 'bicubic',
+                      b: int = 0,
+                      c: float = 1 / 2,
+                      taps: int = 3,
+                      mode: str = 'wh',
+                      thr: float = 0.015,
+                      show_plot: bool = True,
+                      save_path: Optional[os.PathLike] = None
+                      ) -> None:
     num_samples = len(src_heights)
-    clips = clip[frame_no].resize.Point(format=vs.GRAYS, matrix_s='709' if clip.format.color_family == vs.RGB else None) * num_samples
+    clips = clip[frame_no].resize.Point(
+        format=vs.GRAYS, matrix_s='709' if clip.format.color_family == vs.RGB else None) * num_samples
     # Descale
     scaler = get_scaler(kernel, b, c, taps)
+
     def _rescale(n, clip):
-        cropping_args = descale_cropping_args(clip, src_heights[n], base_height, base_width, mode)
-        descaled = core.descale.Descale(clip, kernel=kernel, b=b, c=c, taps=taps, **cropping_args)
+        cropping_args = descale_cropping_args(
+            clip, src_heights[n], base_height, base_width, mode)
+        descaled = core.descale.Descale(
+            clip, kernel=kernel, b=b, c=c, taps=taps, **cropping_args)
         cropping_args.update(width=clip.width, height=clip.height)
         return scaler(descaled, **cropping_args)
     rescaled = core.std.FrameEval(clips, partial(_rescale, clip=clips))
-    diff = core.std.Expr([clips, rescaled], f'x y - abs dup {thr} > swap 0 ?').std.Crop(10, 10, 10, 10).std.PlaneStats()
+    diff = core.std.Expr([clips, rescaled], f'x y - abs dup {thr} > swap 0 ?')
+    diff = diff.std.Crop(10, 10, 10, 10).std.PlaneStats()
     # Collect error
     errors = [0.0] * num_samples
     starttime = time.time()
@@ -111,22 +141,38 @@ def gen_descale_error(clip: vs.VideoNode, frame_no: int, base_height: int, base_
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description='Find the native fractional resolution of upscaled material (mostly anime)')
-    parser.add_argument('--frame', '-f', dest='frame_no', type=int, default=0, help='Specify a frame for the analysis, default is 0')
-    parser.add_argument('--kernel', '-k', dest='kernel', type=str.lower, default='bicubic', help='Resize kernel to be used')
-    parser.add_argument('--bicubic-b', '-b', dest='b', type=to_float, default='0', help='B parameter of bicubic resize')
-    parser.add_argument('--bicubic-c', '-c', dest='c', type=to_float, default='1/2', help='C parameter of bicubic resize')
-    parser.add_argument('--lanczos-taps', '-t', dest='taps', type=int, default=3, help='Taps parameter of lanczos resize')
-    parser.add_argument('--base-height', '-bh', dest='bh', type=int, default=None, help='Base integer height before cropping')
-    parser.add_argument('--base-width', '-bw', dest='bw', type=int, default=None, help='Base integer width before cropping')
-    parser.add_argument('--min-src-height', '-min', dest='sh_min', type=to_float, default=None, help='Minimum native src_height to consider')
-    parser.add_argument('--max-src-height', '-max', dest='sh_max', type=to_float, default=None, help='Maximum native src_height to consider')
-    parser.add_argument('--step-length', '-sl', dest='sh_step', type=to_float, default='0.25', help='Step length of src_height searching')
-    parser.add_argument('--threshold', '-thr', dest='thr', type=to_float, default='0.015', help='Threshold for calculating descaling error')
-    parser.add_argument('--mode', '-m', dest='mode', type=str.lower, default='wh', help='Mode for descaling, options are wh (default), w (descale in width only) and h (descale in height only)')
-    parser.add_argument('--save-dir', '-dir', dest='save_dir', type=str, default=None, help='Location of output error plot directory')
-    parser.add_argument('--save-ext', '-ext', dest='save_ext', type=str, default='svg', help='File extension of output error plot file')
-    parser.add_argument(dest='input_file', type=str, help='Absolute or relative path to the input VPY script')
+    parser = argparse.ArgumentParser(
+        description='Find the native fractional resolution of upscaled material (mostly anime)')
+    parser.add_argument('--frame', '-f', dest='frame_no', type=int,
+                        default=0, help='Specify a frame for the analysis, default is 0')
+    parser.add_argument('--kernel', '-k', dest='kernel', type=str.lower,
+                        default='bicubic', help='Resize kernel to be used')
+    parser.add_argument('--bicubic-b', '-b', dest='b', type=to_float,
+                        default='0', help='B parameter of bicubic resize')
+    parser.add_argument('--bicubic-c', '-c', dest='c', type=to_float,
+                        default='1/2', help='C parameter of bicubic resize')
+    parser.add_argument('--lanczos-taps', '-t', dest='taps',
+                        type=int, default=3, help='Taps parameter of lanczos resize')
+    parser.add_argument('--base-height', '-bh', dest='bh', type=int,
+                        default=None, help='Base integer height before cropping')
+    parser.add_argument('--base-width', '-bw', dest='bw', type=int,
+                        default=None, help='Base integer width before cropping')
+    parser.add_argument('--min-src-height', '-min', dest='sh_min', type=to_float,
+                        default=None, help='Minimum native src_height to consider')
+    parser.add_argument('--max-src-height', '-max', dest='sh_max', type=to_float,
+                        default=None, help='Maximum native src_height to consider')
+    parser.add_argument('--step-length', '-sl', dest='sh_step', type=to_float,
+                        default='0.25', help='Step length of src_height searching')
+    parser.add_argument('--threshold', '-thr', dest='thr', type=to_float,
+                        default='0.015', help='Threshold for calculating descaling error')
+    parser.add_argument('--mode', '-m', dest='mode', type=str.lower, default='wh',
+                        help='Mode for descaling, options are wh (default), w (descale in width only) and h (descale in height only)')
+    parser.add_argument('--save-dir', '-dir', dest='save_dir', type=str,
+                        default=None, help='Location of output error plot directory')
+    parser.add_argument('--save-ext', '-ext', dest='save_ext', type=str,
+                        default='svg', help='File extension of output error plot file')
+    parser.add_argument(dest='input_file', type=str,
+                        help='Absolute or relative path to the input VPY script')
     args = parser.parse_args()
 
     ext = os.path.splitext(args.input_file)[1]
@@ -146,11 +192,13 @@ def main() -> None:
     print(f'Using base dimensions {base_width}x{base_height}.')
 
     if args.save_dir is None:
-        dir_out = os.path.join(os.path.dirname(args.input_file), 'getfnative_results')
+        dir_out = os.path.join(os.path.dirname(
+            args.input_file), 'getfnative_results')
         os.makedirs(dir_out, exist_ok=True)
     else:
         dir_out = args.save_dir
-    save_path = dir_out + os.path.sep + f'getfnative-f{args.frame_no}-bh{args.bh}'
+    save_path = dir_out + os.path.sep + \
+        f'getfnative-f{args.frame_no}-bh{args.bh}'
     n = 1
     while True:
         if os.path.exists(save_path + f'-{n}.' + args.save_ext):
@@ -174,9 +222,9 @@ def main() -> None:
     max_samples = floor((sh_max - sh_min) / args.sh_step) + 1
     src_heights = [sh_min + n * args.sh_step for n in range(max_samples)]
 
-    gen_descale_error(clip, args.frame_no, base_height, base_width, src_heights, args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
+    gen_descale_error(clip, args.frame_no, base_height, base_width, src_heights,
+                      args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
 
 
 if __name__ == '__main__':
     main()
-
