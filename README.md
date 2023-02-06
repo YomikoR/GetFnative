@@ -7,7 +7,8 @@ The general idea can be found in [anibin's blog](https://anibin.blogspot.com/201
 
 ### getfnative
 
-Suppose the native integer resolution is `base_width x base_height`, upscaled and cropped to only keep the central region (typically 1920 x 1080). This script performs a naive search on the fractional `src_height`.
+Suppose the native integer resolution is `base_width x base_height`, upscaled and cropped to only keep the central region (typically 1920 x 1080).
+This script performs a naive search on the fractional `src_height`.
 The search is taken in the interval from `min` to `max` with a given `step_length`.
 These parameters can be specified using `-min`, `-max` and `-sl`, respectively.
 
@@ -41,7 +42,7 @@ The values of `src_height` to be checked become 820, 820.1, 820.2, ..., 840.
 
 ```python
 from getfnative import descale_cropping_args
-d_args = descale_cropping_args(clip, src_height=830.77, base_height=864)
+d_args = descale_cropping_args(clip, src_height=830.77, base_height=900, base_width=1600)
 descaled = core.descale.Debilinear(clip, **d_args)
 f1 = 1
 f2 = 1
