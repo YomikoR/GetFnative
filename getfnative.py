@@ -189,7 +189,7 @@ def main() -> None:
         base_width = args.bw
     base_height = clip.height - (base_height - clip.height) % 2
     base_width = clip.width - (base_width - clip.width) % 2
-    print(f'Using base dimensions {base_width}x{base_height}.')
+    print(f'Using base dimensions with the same parities as {base_width}x{base_height}.')
 
     if args.save_dir is None:
         dir_out = os.path.join(os.path.dirname(

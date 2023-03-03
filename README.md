@@ -61,4 +61,4 @@ A demo script for anti-aliasing, assuming you have got an estimated `src_height`
 
 Thanks to the authors of [getnative](https://github.com/Infiziert90/getnative) and [Yuuno](https://github.com/Irrational-Encoding-Wizardry/yuuno).
 
-**I don't know what I'm doing.**
+**I don't know what I'm doing but you'd better do.**
