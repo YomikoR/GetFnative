@@ -123,7 +123,7 @@ def gen_descale_error(clip: vs.VideoNode,
                       save_path: Optional[os.PathLike] = None
                       ) -> None:
     num_samples = len(src_heights)
-    clips = clip[frame_no].std.Crop(top=crop_top, bottom=crop_bottom, left=crop_left, right=crop_right).resize.Point(
+    clips = clip[frame_no].resize.Point(
         format=vs.GRAYS, matrix_s='709' if clip.format.color_family == vs.RGB else None) * num_samples
     # Descale
     scaler = get_scaler(kernel, b, c, taps)
@@ -210,16 +210,24 @@ def main() -> None:
     else:
         raise ValueError('You should provide either a script or an image.')
 
+    assert args.ct >= 0
+    assert args.cb >= 0
+    assert args.cl >= 0
+    assert args.cr >= 0
+
+    full_height = clip.height + args.ct + args.cb
+    full_width = clip.width + args.cl + args.cr
+
     if args.bh is None:
-        base_height = clip.height
+        base_height = full_height
     else:
         base_height = args.bh
     if args.bw is None:
-        base_width = clip.width
+        base_width = full_width
     else:
         base_width = args.bw
-    base_height = clip.height - (base_height - clip.height) % 2
-    base_width = clip.width - (base_width - clip.width) % 2
+    base_height = full_height - (base_height - full_height) % 2
+    base_width = full_width - (base_width - full_width) % 2
     print(f'Using base dimensions with the same parities as {base_width}x{base_height}.')
 
     if args.save_dir is None:
