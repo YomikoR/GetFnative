@@ -58,28 +58,44 @@ def to_float(str_value: str) -> float:
             "Exception while parsing float") from None
 
 
-def descale_cropping_args(clip: vs.VideoNode,
+def descale_cropping_args(clip: vs.VideoNode, # letterbox-free source clip
                           src_height: float,
                           base_height: int,
                           base_width: int,
+                          crop_top: int = 0,
+                          crop_bottom: int = 0,
+                          crop_left: int = 0,
+                          crop_right: int = 0,
                           mode: str = 'wh'
                           ) -> dict[str, Union[int, float]]:
-    src_width = src_height * clip.width / clip.height
-    cropped_width = base_width - 2 * floor((base_width - src_width) / 2)
-    cropped_height = base_height - 2 * floor((base_height - src_height) / 2)
+    ratio = src_height / (clip.height + crop_top + crop_bottom)
+    src_width = ratio * (clip.width + crop_left + crop_right)
+
+    cropped_src_width = ratio * clip.width
+    margin_left = (base_width - src_width) / 2 + ratio * crop_left
+    margin_right = (base_width - src_width) / 2 + ratio * crop_right
+    cropped_width = base_width - floor(margin_left) - floor(margin_right)
+    cropped_src_left = margin_left - floor(margin_left)
+
+    cropped_src_height = ratio * clip.height
+    margin_top = (base_height - src_height) / 2 + ratio * crop_top
+    margin_bottom = (base_height - src_height) / 2 + ratio * crop_bottom
+    cropped_height = base_height - floor(margin_top) - floor(margin_bottom)
+    cropped_src_top = margin_top - floor(margin_top)
+
     args = dict(
-        width=clip.width,
-        height=clip.height
+        width=clip.width + crop_left + crop_right,
+        height=clip.height + crop_top + crop_bottom
     )
     args_w = dict(
         width=cropped_width,
-        src_width=src_width,
-        src_left=(cropped_width - src_width) / 2
+        src_width=cropped_src_width,
+        src_left=cropped_src_left
     )
     args_h = dict(
         height=cropped_height,
-        src_height=src_height,
-        src_top=(cropped_height - src_height) / 2
+        src_height=cropped_src_height,
+        src_top=cropped_src_top
     )
     if 'w' in mode.lower():
         args.update(args_w)
@@ -89,6 +105,10 @@ def descale_cropping_args(clip: vs.VideoNode,
 
 
 def gen_descale_error(clip: vs.VideoNode,
+                      crop_top: int,
+                      crop_bottom: int,
+                      crop_left: int,
+                      crop_right: int,
                       frame_no: int,
                       base_height: int,
                       base_width: int,
@@ -103,16 +123,15 @@ def gen_descale_error(clip: vs.VideoNode,
                       save_path: Optional[os.PathLike] = None
                       ) -> None:
     num_samples = len(src_heights)
-    clips = clip[frame_no].resize.Point(
+    clips = clip[frame_no].std.Crop(top=crop_top, bottom=crop_bottom, left=crop_left, right=crop_right).resize.Point(
         format=vs.GRAYS, matrix_s='709' if clip.format.color_family == vs.RGB else None) * num_samples
     # Descale
     scaler = get_scaler(kernel, b, c, taps)
 
-    def _rescale(n, clip):
+    def _rescale(n: int, clip: vs.VideoNode) -> vs.VideoNode:
         cropping_args = descale_cropping_args(
-            clip, src_heights[n], base_height, base_width, mode)
-        descaled = core.descale.Descale(
-            clip, kernel=kernel, b=b, c=c, taps=taps, **cropping_args)
+            clip, src_heights[n], base_height, base_width, crop_top, crop_bottom, crop_left, crop_right, mode)
+        descaled = core.descale.Descale(clip, kernel=kernel, b=b, c=c, taps=taps, **cropping_args)
         cropping_args.update(width=clip.width, height=clip.height)
         return scaler(descaled, **cropping_args)
     rescaled = core.std.FrameEval(clips, partial(_rescale, clip=clips))
@@ -157,6 +176,14 @@ def main() -> None:
                         default=None, help='Base integer height before cropping')
     parser.add_argument('--base-width', '-bw', dest='bw', type=int,
                         default=None, help='Base integer width before cropping')
+    parser.add_argument('--crop-top', '-ct', dest='ct', type=int,
+                        default='0', help='Top border size of letterboxing')
+    parser.add_argument('--crop-bottom', '-cb', dest='cb', type=int,
+                        default='0', help='Bottom border size of letterboxing')
+    parser.add_argument('--crop-left', '-cl', dest='cl', type=int,
+                        default='0', help='Left border size of letterboxing')
+    parser.add_argument('--crop-right', '-cr', dest='cr', type=int,
+                        default='0', help='Right border size of letterboxing')
     parser.add_argument('--min-src-height', '-min', dest='sh_min', type=to_float,
                         default=None, help='Minimum native src_height to consider')
     parser.add_argument('--max-src-height', '-max', dest='sh_max', type=to_float,
@@ -226,7 +253,8 @@ def main() -> None:
     max_samples = floor((sh_max - sh_min) / args.sh_step) + 1
     src_heights = [sh_min + n * args.sh_step for n in range(max_samples)]
 
-    gen_descale_error(clip, args.frame_no, base_height, base_width, src_heights,
+    gen_descale_error(clip, args.ct, args.cb, args.cl, args.cr, args.frame_no,
+                      base_height, base_width, src_heights,
                       args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
 
 
