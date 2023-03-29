@@ -7,15 +7,19 @@ The general idea can be found in [anibin's blog](https://anibin.blogspot.com/201
 
 ### getfnative
 
-Suppose the native integer resolution is `base_width x base_height`, upscaled and cropped to only keep the central region (typically 1920 x 1080).
-This script performs a naive search on the fractional `src_height`.
+Suppose
+ 1. The clip was rendered in a native integer resolution `base_width x base_height`.
+ 2. The rendered clip then got upscaled and cropped to only keep the central region (typically 1920 x 1080).
+ 3. (Optional) Borders of the upscaled clip might be further filled by black (with `crop_left`, `crop_right`, `crop_top` and `crop_bottom` pixels, respectively) to match a certain aspect ratio (e.g. 1920 x 803).
+
+This script performs a naive search on the fractional `src_height` corresponding to Step 2 ot the above.
 The search is taken in the interval from `min` to `max` with a given `step_length`.
 These parameters can be specified using `-min`, `-max` and `-sl`, respectively.
 
-You would like to specify the **parity** of `base_height` (with `-bh`) and `base_width` (with `-bw`).
+Since information of the cropped part of the clip is permanently lost, we cannot figure out the exact values of `base_height` (specified with `-bh`) and `base_width` (with `-bw`).
+Fortunately, it usually suffices to specify the **parity** of these values for descaling.
 Default values are identical to the dimensions of the tested clip.
-Note that even and odd values of `base_height` or `base_width` behave quite differently because of the cropping method.
-With the wrong parity used you might see a spike in the opposite direction.
+Note that with the wrong parity used you might see a spike in the plot towards an opposite direction.
 
 Pass `-m w` or `-m h` to descale only in width or in height.
 This may be helpful for identifying the parity of base dimensions individually.
@@ -35,10 +39,14 @@ python -m getfnative script.vpy -bh 864 -f 1001
 ```
 This examines frame 1001 from the output index 0 of the provided script, by checking the `src_height` values of 764.0, 764.25, 764.5, ..., 864.0. By default `min = base_height - 100` and `sl = 0.25`.
 
+---
+
 ```python
 python -m getfnative script.vpy -bh 864 -f 1001 -min 820 -max 840 -sl 0.1
 ```
 The values of `src_height` to be checked become 820, 820.1, 820.2, ..., 840.
+
+---
 
 ```python
 from getfnative import descale_cropping_args
@@ -56,6 +64,25 @@ c_args = dict(
 final = core.resize.Bicubic(upscaled, 1920, 1080, **c_args)
 ```
 A demo script for anti-aliasing, assuming you have got an estimated `src_height`, say, 830.77, you will descale, upscale with nnedi3, and resize to 1920x1080. These cropping arguments are the ones used for testing the kernel, and is often suitable for post-processing provided the resizer does not have rather large taps.
+
+---
+
+```python
+python -m getfnative script.vpy ... -ct 138 -cb 139
+```
+An example for source with letterboxing. `-ct` and `-cb` are short for `--crop-top` and `--crop-bottom`, respectively.
+The input clip should have borders already cropped.
+```python
+from getfnative import descale_cropping_args
+# Assuming clip has dimensions 1920 x 803
+print(descale_cropping_args(clip, src_height=810, base_height=1080, base_width=1920, crop_top=138, crop_bottom=139))
+# Expected output: {'width': 1440, 'height': 603, 'src_width': 1440.0, 'src_left': 0.0, 'src_height': 602.25, 'src_top': 0.5}
+```
+Depending on the actual source, both cases may happen:
+  1. Upscale a 1440 x 603 clip to 1920 x 804, crop the bottom line, and letterbox;
+  2. Upscale a 1440 x 810 clip to 1920 x 1080, and letterbox.
+
+In getfnative the second case is checked, and the result includes a 0.5 pixel shift on top.
 
 ## Acknowledgment
 
