@@ -176,8 +176,12 @@ def main() -> None:
     args = parser.parse_args()
 
     ext = os.path.splitext(args.input_file)[1]
-    assert ext.lower() in {'.py', '.pyw', '.vpy'}
-    clip = vpy_source_filter(args.input_file)
+    if ext.lower() in {'.py', '.pyw', '.vpy'}:
+        clip = vpy_source_filter(args.input_file)
+    elif ext.lower() in {'.png', '.bmp', '.tif', '.tiff', '.webp'}:
+        clip = core.imwri.Read(args.input_file, float_output=True)
+    else:
+        raise ValueError('You should provide either a script or an image.')
 
     if args.bh is None:
         base_height = clip.height
