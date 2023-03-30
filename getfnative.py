@@ -84,8 +84,8 @@ def descale_cropping_args(clip: vs.VideoNode, # letterbox-free source clip
     cropped_src_top = margin_top - floor(margin_top)
 
     args = dict(
-        width=clip.width + crop_left + crop_right,
-        height=clip.height + crop_top + crop_bottom
+        width=clip.width,
+        height=clip.height
     )
     args_w = dict(
         width=cropped_width,
