@@ -120,11 +120,14 @@ def gen_descale_error(clip: vs.VideoNode,
                       mode: str = 'wh',
                       thr: float = 0.015,
                       show_plot: bool = True,
+                      ll: bool = False,
                       save_path: Optional[os.PathLike] = None
                       ) -> None:
     num_samples = len(src_heights)
     clips = clip[frame_no].resize.Point(
         format=vs.GRAYS, matrix_s='709' if clip.format.color_family == vs.RGB else None) * num_samples
+    if ll:
+        clips = core.resize.Point(clips, transfer=8, transfer_in=1)
     # Descale
     scaler = get_scaler(kernel, b, c, taps)
 
@@ -198,6 +201,8 @@ def main() -> None:
                         default=None, help='Location of output error plot directory')
     parser.add_argument('--save-ext', '-ext', dest='save_ext', type=str,
                         default='svg', help='File extension of output error plot file')
+    parser.add_argument('--linear-light', '-ll', dest='ll', action='store_true',
+                        help='Whether to process rescale in linear light')
     parser.add_argument(dest='input_file', type=str,
                         help='Absolute or relative path to the input VPY script')
     args = parser.parse_args()
@@ -263,7 +268,7 @@ def main() -> None:
 
     gen_descale_error(clip, args.ct, args.cb, args.cl, args.cr, args.frame_no,
                       base_height, base_width, src_heights,
-                      args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, save_path)
+                      args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, args.ll, save_path)
 
 
 if __name__ == '__main__':
