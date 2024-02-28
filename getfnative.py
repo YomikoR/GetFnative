@@ -18,27 +18,6 @@ core = vs.core
 __all__ = ['descale_cropping_args']
 
 
-def get_scaler(kernel: str,
-               b: int = 0,
-               c: float = 1 / 2,
-               taps: int = 3
-               ) -> Callable[..., vs.VideoNode]:
-    if kernel == 'bilinear':
-        return core.resize.Bilinear
-    elif kernel == 'bicubic':
-        return partial(core.resize.Bicubic, filter_param_a=b, filter_param_b=c)
-    elif kernel == 'lanczos':
-        return partial(core.resize.Lanczos, filter_param_a=taps)
-    elif kernel == 'spline16':
-        return core.resize.Spline16
-    elif kernel == 'spline36':
-        return core.resize.Spline36
-    elif kernel == 'spline64':
-        return core.resize.Spline64
-    else:
-        raise ValueError('get_scaler: invalid kernel specified.')
-
-
 def vpy_source_filter(path: str) -> vs.VideoNode:
     runpy.run_path(path, {}, '__vapoursynth__')
     output = vs.get_output(0)
@@ -113,10 +92,6 @@ def gen_descale_error(clip: vs.VideoNode,
                       base_height: int,
                       base_width: int,
                       src_heights: list[float],
-                      kernel: str = 'bicubic',
-                      b: int = 0,
-                      c: float = 1 / 2,
-                      taps: int = 3,
                       mode: str = 'wh',
                       thr: float = 0.015,
                       show_plot: bool = True,
@@ -129,14 +104,12 @@ def gen_descale_error(clip: vs.VideoNode,
     if ll:
         clips = core.resize.Point(clips, transfer=8, transfer_in=1)
     # Descale
-    scaler = get_scaler(kernel, b, c, taps)
-
     def _rescale(n: int, clip: vs.VideoNode) -> vs.VideoNode:
         cropping_args = descale_cropping_args(
             clip, src_heights[n], base_height, base_width, crop_top, crop_bottom, crop_left, crop_right, mode)
-        descaled = core.descale.Descale(clip, kernel=kernel, b=b, c=c, taps=taps, **cropping_args)
+        descaled = core.descale.Debicubic(clip, b=0, c=1/2, **cropping_args)
         cropping_args.update(width=clip.width, height=clip.height)
-        return scaler(descaled, **cropping_args)
+        return core.resize.Bicubic(descaled, **cropping_args)
     rescaled = core.std.FrameEval(clips, partial(_rescale, clip=clips))
     diff = core.std.Expr([clips, rescaled], f'x y - abs dup {thr} > swap 0 ?')
     diff = diff.std.Crop(10, 10, 10, 10).std.PlaneStats()
@@ -167,14 +140,6 @@ def main() -> None:
         description='Find the native fractional resolution of upscaled material (mostly anime)')
     parser.add_argument('--frame', '-f', dest='frame_no', type=int,
                         default=0, help='Specify a frame for the analysis, default is 0')
-    parser.add_argument('--kernel', '-k', dest='kernel', type=str.lower,
-                        default='bicubic', help='Resize kernel to be used')
-    parser.add_argument('--bicubic-b', '-b', dest='b', type=to_float,
-                        default='0', help='B parameter of bicubic resize')
-    parser.add_argument('--bicubic-c', '-c', dest='c', type=to_float,
-                        default='1/2', help='C parameter of bicubic resize')
-    parser.add_argument('--lanczos-taps', '-t', dest='taps',
-                        type=int, default=3, help='Taps parameter of lanczos resize')
     parser.add_argument('--base-height', '-bh', dest='bh', type=int,
                         default=None, help='Base integer height before cropping')
     parser.add_argument('--base-width', '-bw', dest='bw', type=int,
@@ -268,7 +233,7 @@ def main() -> None:
 
     gen_descale_error(clip, args.ct, args.cb, args.cl, args.cr, args.frame_no,
                       base_height, base_width, src_heights,
-                      args.kernel, args.b, args.c, args.taps, args.mode, args.thr, True, args.ll, save_path)
+                      args.mode, args.thr, True, args.ll, save_path)
 
 
 if __name__ == '__main__':
