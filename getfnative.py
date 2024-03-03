@@ -102,7 +102,7 @@ def gen_descale_error(clip: vs.VideoNode,
     clips = clip[frame_no].resize.Point(
         format=vs.GRAYS, matrix_s='709' if clip.format.color_family == vs.RGB else None) * num_samples
     if ll:
-        clips = core.resize.Point(clips, transfer=8, transfer_in=1)
+        clips = core.resize.Point(clips, transfer=8, matrix_in=1, transfer_in=1, primaries_in=1)
     # Descale
     def _rescale(n: int, clip: vs.VideoNode) -> vs.VideoNode:
         cropping_args = descale_cropping_args(
