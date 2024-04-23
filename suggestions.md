@@ -2,7 +2,7 @@ Below is an incomplete list of upscaling ratio values found in (guessed from) bl
 
 | Resolution | Ratio  | Possible base resolution |
 | ---------- | ------ | ------------------------ |
-| 878        | 1.23   | 1600x900                 |
+| 878        | 1.23   | 1600x1000                |
 | 871        | 1.24   | 1600x900                 |
 | 857        | 1.26   | 1600x900                 |
 | 853        | 1/0.79 | 1520x855                 |
