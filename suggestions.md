@@ -9,4 +9,5 @@ Below is an incomplete list of upscaling ratio values found in (guessed from) bl
 | 847        | 1.275  | 1600x960                 |
 | 844        | 1.28   | 1600x900                 |
 | 831        | 1.3    | 1600x900                 |
+| 827        | 1.305x | 1532x858                 |
 | 806        | 1.34   | 1440x810                 |
